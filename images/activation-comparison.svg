@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="520" height="380" viewBox="0 0 520 380" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
-  <rect width="520" height="380" fill="#ffffff"/>
-  <text x="260" y="30" text-anchor="middle" font-size="18" font-weight="600" fill="#1a1a1a">ReLU vs. Sigmoid vs. Tanh</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="490" height="380" viewBox="30 0 490 380" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+  <rect x="30" width="490" height="380" fill="#ffffff"/>
+  <text x="275" y="30" text-anchor="middle" font-size="18" font-weight="600" fill="#1a1a1a">ReLU vs. Sigmoid vs. Tanh</text>
 
   <!-- axes -->
   <line x1="60" y1="220" x2="480" y2="220" stroke="#cbd5e1" stroke-width="2"/>
