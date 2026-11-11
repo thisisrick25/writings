@@ -1,0 +1,77 @@
+---
+title: Find a Free Port in Python
+description: How to find a free port in Python with a bind check, fall back to an OS-assigned port, and keep one source of truth for it.
+publishedAt: 2026-11-11
+updatedAt: 2026-11-11
+isPublished: true
+tags:
+  - python
+  - networking
+  - sockets
+  - dev-tools
+  - llama-cpp
+---
+
+My app starts `llama-server` at port `8080`. If there's already another process listening on that port, then it will either not be able to bind (**Address already in use**), will lockup on startup, or stealthily proxy all chat requests to a different process.
+
+The app runs the server as child process and proxies chat calls to it; that port is a default that I never owned.
+
+One of two things happens:
+
+1. The child can't bind and exits, and the parent reports a vague timeout instead of the real cause.
+2. The parent assumes the server is on `8080` and proxies requests to whatever is actually listening.
+
+To make it worse, `8080` was hardcoded in three different places (request model, default argument in the launcher, proxy url builder). The only reason those three were consistent is because I've typed the same number three times.
+
+Using some obscure port like `53017` reduces the chances of port collision but doesn't eliminate it. Availability assumption is a bad thing here. No recording of what's the port on which server has been bound. Basically, you need to resolve a usable port at startup and there should be a single place where it's stored and all other places are reading it.
+
+A free-port check in Python is a bind attempt:
+
+```python
+import socket
+import sys
+
+def _is_port_free(port: int, host: str = "127.0.0.1") -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        if sys.platform == "win32":
+            # Without this, Windows lets you bind a port that's already in use.
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        try:
+            sock.bind((host, port))
+            return True
+        except OSError:
+            return False
+```
+
+Selection prefers the requested port and falls back to an OS-assigned one. Binding to port `0` asks the kernel for any free ephemeral port:
+
+```python
+def find_free_port(preferred: int, host: str = "127.0.0.1") -> int:
+    if _is_port_free(preferred, host):
+        return preferred
+
+    logger.warning("Port %d is in use; using an OS-assigned port.", preferred)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind((host, 0))
+        return sock.getsockname()[1]
+```
+
+The launcher resolves the port before building its config:
+
+```python
+resolved_port = find_free_port(port if port is not None else DEFAULT_PORT, host)
+
+self._config = LlamaServerConfig(model_path=model_path, host=host, port=resolved_port, ...)
+```
+
+The API URL is derived from `self._config.port`, so the proxy, the status endpoint, and the response all report the port the server actually bound. The request field changed from `port: int = 8080` to `port: Optional[int] = None`, so callers can say "pick one for me."
+
+To test it, I held `8080` open with a real listener and started the server. It fell back to `65033`, the status endpoint reported it as running, and a health check against `65033` succeeded.
+
+A few limitations worth knowing:
+
+- The probe doesn't have `SO_REUSEADDR` by design. On windows, you can bind over a live listener, on mac/bsd you can get specific-address bind to succeed with a wildcard listener. Both would say a port you're busy is available. In return, `TIME_WAIT` ports show up as busy which is just an unnecessary backup.
+- There's a race between the probe and the child. The probe closes its socket before the child binds, so something else could take the port in between. If that happens the child fails to bind, but you'll only see it if your readiness check watches the child's exit status as well as polling health.
+- This doesn't add concurrency. The server is still a singleton, and starting a second one still returns a conflict.
+
+In short: don't assume a port is available. Check at runtime, bind to `0` when you need the OS to choose, store the port you actually got, and read it from that one place everywhere else.
