@@ -19,18 +19,13 @@ jobs:
         with:
           node-version: "24.11.0"
 
-      - name: Install dependencies
-        run: |
-          npm init -y
-          npm install @google/genai
-
       - name: Fetch PRs and generate summaries
         run: node scripts/generate-summaries.js
         env:
           GIT_USERNAME: ${{ github.repository_owner }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
 
       - name: Commit and push changes
         run: |
