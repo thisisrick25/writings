@@ -1,0 +1,37 @@
+---
+id: 2777
+repo: "gitlab-org/cli"
+title: "chore: combine the integration test coverage with the unit test coverage"
+url: "https://gitlab.com/gitlab-org/cli/-/merge_requests/2777"
+mergedAt: "2026-10-02T14:23:53Z"
+relatedIssues: ["https://gitlab.com/gitlab-org/cli/-/work_items/8046"]
+summary: "Combines unit and integration test coverage into a single reported metric."
+---
+
+## What was done
+- Moved the `coverage:` regex from `tests:unit` to a new dedicated `tests:coverage` job.
+- The `tests:coverage` job merges unit and integration test coverage profiles into one report.
+- Coverage profiles are merged by concatenating them under a single `mode: atomic` header.
+- Added a `coverage-merge` target that verifies both profiles share the `mode: atomic` header before merging.
+- Kept the JUnit report (`coverage-unit.xml`) in `tests:unit` so the merge request widget still shows failed tests.
+
+## Impact
+- Reports a single coverage number that includes both unit and integration tests.
+- Integration-test-only coverage no longer lowers the reported coverage percentage.
+- Community forks (such as `gitlab-community`) may still report unit-only coverage because integration tests require canonical project variables (`GITLAB_TOKEN_TEST`, `GITLAB_TEST_HOST`).
+- No breaking changes for developers; test results and failed-test lists in merge request widgets are preserved.
+
+## Technical details
+- Uses Go's `cover.ParseProfiles` to sum counts for duplicate blocks when concatenating profiles.
+- Avoids external merge tools like `gocovmerge` by relying on concatenation with `mode: atomic`.
+- Header-equality guard rejects mismatched cover modes (for example, `mode: set` or `mode: count` mixed with `mode: atomic`).
+- Resolves issue #8046.
+
+## Related issues
+- [#8046](https://gitlab.com/gitlab-org/cli/-/work_items/8046)
+
+## Metadata
+- Source: gitlab
+- Repo: gitlab-org/cli
+- URL: https://gitlab.com/gitlab-org/cli/-/merge_requests/2777
+- Merged: 2026-10-02T14:23:53Z
