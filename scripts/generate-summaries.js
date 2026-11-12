@@ -1,11 +1,12 @@
 const fs = require("fs");
 const path = require("path");
-const { GoogleGenAI } = require("@google/genai");
-
 const GIT_USERNAME = process.env.GIT_USERNAME;
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
 const GITLAB_TOKEN = process.env.GITLAB_TOKEN;
+
+const NVIDIA_NIM_BASE = "https://integrate.api.nvidia.com/v1";
+const NVIDIA_NIM_MODEL = "nvidia/nemotron-3.5-super-vl-120b-a12b";
 
 // GraphQL Queries
 const GITHUB_GRAPHQL_QUERY = `query {
@@ -53,7 +54,7 @@ const ignoredPRs = [
 
 if (!GITHUB_TOKEN) throw new Error("GITHUB_TOKEN is required");
 if (!GITLAB_TOKEN) throw new Error("GITLAB_TOKEN is required");
-if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is required");
+if (!NVIDIA_API_KEY) throw new Error("NVIDIA_API_KEY is required");
 
 // --- Helpers ---
 
@@ -225,8 +226,6 @@ async function fetchGitLabMRs() {
 // --- Generator ---
 
 async function generateSummary(pr) {
-  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-
   const prompt = `You are an expert technical writer. Generate a concise, informative MDX summary for the following ${
     pr.source === "gitlab" ? "Merge Request" : "Pull Request"
   }.
@@ -283,15 +282,34 @@ ${
 `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
+    const res = await fetch(`${NVIDIA_NIM_BASE}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${NVIDIA_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: NVIDIA_NIM_MODEL,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.2,
+        max_tokens: 2048,
+      }),
     });
 
+    if (!res.ok) {
+      const errorBody = await res.text();
+      throw new Error(
+        `NVIDIA NIM API error: ${res.status} ${errorBody}`
+      );
+    }
+
+    const json = await res.json();
+    const text = json.choices?.[0]?.message?.content || "";
+
     // Sanitize the output just in case
-    return cleanMDX(response.text);
+    return cleanMDX(text);
   } catch (error) {
-    console.error(`Gemini API Error for ${pr.repo}#${pr.id}:`, error.message);
+    console.error(`NVIDIA NIM API Error for ${pr.repo}#${pr.id}:`, error.message);
     throw error;
   }
 }
@@ -346,8 +364,8 @@ async function main() {
     fs.mkdirSync(contributionsDir);
   }
 
-  // Process sequentially to be gentle on Gemini Rate Limits
-  // (Gemini Flash has high limits, but safest to process one by one or small batches)
+  // Process sequentially to be gentle on NVIDIA NIM Rate Limits
+  // (NIM has generous limits, but safest to process one by one or small batches)
   let count = 0;
   for (const pr of allContributions) {
     if (ignoredPRs.includes(`${pr.repo}#${pr.id}`)) {
