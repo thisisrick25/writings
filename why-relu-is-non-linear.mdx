@@ -17,7 +17,7 @@ ReLU(x) = max(0, x)
 
 Positive inputs pass through unchanged and negative inputs become zero. The usual objection is immediate: that's two straight lines, so how is it non-linear?
 
-![Graph of the ReLU function showing a flat line at zero for negative inputs and a line with slope one for positive inputs, meeting at a kink at the origin](images/why-relu-is-nonlinear//relu-graph.svg)
+![Graph of the ReLU function showing a flat line at zero for negative inputs and a line with slope one for positive inputs, meeting at a kink at the origin](images/why-relu-is-nonlinear/relu-graph.svg)
 
 ## Two straight lines can still be non-linear
 
@@ -63,7 +63,7 @@ The unit `h2` does the real work. It stays at zero until both inputs are on, the
 
 ## What happens once ReLU sits between layers
 
-![Diagram showing that two stacked linear layers with no activation collapse into a single equivalent linear layer, whereas inserting ReLU between them prevents the collapse and preserves genuine depth](images/why-relu-is-nonlinear//layer-collapse.svg)
+![Diagram showing that two stacked linear layers with no activation collapse into a single equivalent linear layer, whereas inserting ReLU between them prevents the collapse and preserves genuine depth](images/why-relu-is-nonlinear/layer-collapse.svg)
 
 With ReLU between layers, the network can no longer be flattened into one map. Each unit bends the input space, and stacking them carves it into many regions, each with its own linear behavior. That is the intuition behind the universal approximation theorem: enough of these pieces can approximate essentially any continuous function.
 
@@ -71,7 +71,7 @@ With ReLU between layers, the network can no longer be flattened into one map. E
 
 Any non-linearity would break the collapse, so why ReLU? It's cheap, with one comparison and no exponentials. Its gradient is 1 for positive inputs, so it avoids the vanishing gradients that sigmoid and tanh produce when they saturate. And it outputs exact zeros, so many neurons are inactive at any moment, giving sparse representations. (The derivative at exactly 0 is undefined; frameworks conventionally use 0.)
 
-![Comparison of three activation functions: ReLU rises without bound and never saturates, while sigmoid and tanh flatten out at their extremes, causing vanishing gradients](images/why-relu-is-nonlinear//activation-comparison.svg)
+![Comparison of three activation functions: ReLU rises without bound and never saturates, while sigmoid and tanh flatten out at their extremes, causing vanishing gradients](images/why-relu-is-nonlinear/activation-comparison.svg)
 
 ## When a ReLU neuron dies
 
